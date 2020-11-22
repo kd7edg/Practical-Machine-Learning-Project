@@ -1,0 +1,119 @@
+---
+title: 'Practical Machine Learning Project'
+subtitle: 'Prediction Assignment'
+author: "Julio Camara"
+date: "11/22/2020"
+output: html_document
+---
+
+**Background**
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+**Synopsis**
+
+The goal of this project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. In this report I will describe how I built the model, how I used cross validation, what I think the expected out of sample error is, and why I made the choices I did. I will also use the prediction model to predict 20 different test cases.
+
+The dataset consists on 5 classes:
+
+. The subject is lifting weights exactly according to the specification (Class A).
+
+. Throwing the elbow to the front (Class B).
+
+. Lifting the dumbbell only halfway (Class C).
+
+. Lowering the dumbbell only halfway (Class D).
+
+. Throwing the hips to the front (Class E).
+
+For more information and description about the dataset, see the official website: <http://groupware.les.inf.puc-rio.br/har>
+
+**Getting the data**
+
+The file "pml-training" will served as our training set.
+The file "pml-testing" is a data set without the classes, in other word, we will predict the classes based on our model.
+
+```{r}
+if(!file.exists("pml-training.csv"))
+{
+  download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", "pml-training.csv", method = 'curl')
+}
+
+dataset <- read.csv("pml-training.csv", na.strings = c("NA", ""))
+
+if(!file.exists("pml-testing.csv"))
+{
+  download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", "pml-testing.csv", method = 'curl')
+}
+
+validation <- read.csv("pml-testing.csv")
+```
+
+**Data preprocessing**
+
+Import the necessary packages.
+```{r}
+library(caret)
+library(randomForest)
+```
+
+Set a seed for reproducibility.
+
+```{r}
+set.seed(3679)
+```
+
+Create the data partitions. 70% of it will go to the training set and the rest will be the test set.
+
+```{r}
+inTrain = createDataPartition(y=dataset$classe, p=0.7, list=FALSE)
+training = dataset[inTrain,]
+testing = dataset[-inTrain,]
+```
+
+Eliminate NA entries.
+
+```{r}
+#Remove columns with NA from the training set
+training.nonNAs <- training[ , colSums(is.na(training)) == 0]
+#Remove unnecessary columns (the first 7 columns)
+training.clean<-training.nonNAs[,-c(1:8)]
+```
+
+Do the same for the validation set
+
+```{r}
+#Remove columns with NA from the training set
+validation.nonNAs <- validation[ , colSums(is.na(validation)) == 0]
+#Remove unnecessary columns (the first 7 columns)
+validation.clean<-validation.nonNAs[,-c(1:8)]
+```
+
+Do the same for the testing set.
+
+```{r}
+#Remove columns with NA from the training set
+testing.nonNAs <- testing[ , colSums(is.na(testing)) == 0]
+#Remove unnecessary columns (the first 7 columns)
+testing.clean<-testing.nonNAs[,-c(1:8)]
+```
+
+Now, I build the prediction model using Random Forest.
+
+```{r acc}
+training.clean$classe = factor(training.clean$classe)
+testing.clean$classe = factor(testing.clean$classe)
+model <- randomForest(classe ~ .,   data=training.clean, ntree = 50)
+predictions <- predict(model, testing.clean)
+confusionMatrix(predictions, testing.clean$classe)
+modelAcc <- confusionMatrix(predictions, testing.clean$classe)$overall[[1]]
+```
+
+This model is `r modelAcc` accurate.
+
+Now, I will predict the unknown classes of the validation set.
+
+```{r}
+predictions <- predict(model, validation.clean)
+predictions
+```
